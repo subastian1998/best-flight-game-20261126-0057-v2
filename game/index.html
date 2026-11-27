@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Steel Falcon 3D — Rafale over the Robot War City</title>
+<link rel="icon" href="data:,">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #2b1d26;
+    font-family: "Segoe UI", system-ui, sans-serif; }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .hidden { display: none !important; }
+
+  /* --- HUD panels: dark glass over the burning city. --- */
+  .panel { position: fixed; z-index: 5; background: rgba(16, 12, 14, 0.72); color: #f4ede2;
+    border: 1px solid rgba(255, 179, 71, 0.35); border-radius: 10px; padding: 10px 14px;
+    backdrop-filter: blur(3px); }
+  .panel .label { font-size: 11px; letter-spacing: 2px; color: #ffb347; text-transform: uppercase; }
+  .panel .value { font-size: 26px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .panel .unit { font-size: 12px; color: #cbbfa8; }
+  #hud-instruments { top: 14px; left: 14px; display: flex; gap: 18px; align-items: center; }
+  #hud-attitude { width: 64px; height: 64px; border-radius: 50%; border: 2px solid #f4ede2;
+    overflow: hidden; position: relative; background: linear-gradient(#e08a3c 50%, #4a3a30 50%); flex: none; }
+  #hud-attitude.warn { border-color: #ff5a4d; }
+  #hud-horizon { position: absolute; left: -20%; top: 50%; width: 140%; height: 2px; background: #fff; }
+  #hud-horizon::after { content: ""; position: absolute; left: 50%; top: -5px; width: 10px; height: 10px;
+    margin-left: -5px; border-radius: 50%; background: #ffb347; }
+  #hud-mission-box { top: 14px; left: 50%; transform: translateX(-50%); text-align: center; }
+  #hud-mission { font-size: 18px; font-weight: 700; }
+  #hud-rings { font-size: 15px; color: #ffb347; }
+  #hud-wind { font-size: 12px; color: #cbbfa8; }
+  #hud-score-box { top: 14px; right: 14px; text-align: right; }
+  #hud-levers { bottom: 14px; left: 14px; display: flex; flex-direction: column; gap: 6px; min-width: 220px; }
+  .bar-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .bar-row .label { width: 52px; }
+  .bar { flex: 1; height: 10px; background: rgba(255,255,255,0.15); border-radius: 5px; overflow: hidden; }
+  .bar > div { height: 100%; border-radius: 5px; }
+  #hud-fuel-bar { background: #ffb347; width: 100%; }
+  #hud-thr-bar { background: #4db2ff; width: 0%; }
+  #hud-hull-bar { background: #37d67a; width: 100%; }
+  #hud-cam-box { bottom: 14px; right: 14px; text-align: right; }
+  #hud-cam { font-size: 15px; font-weight: 700; color: #ffb347; }
+  #hud-msg { position: fixed; z-index: 6; top: 22%; left: 50%; transform: translateX(-50%);
+    background: rgba(16, 12, 14, 0.8); color: #ffe9c4; border: 1px solid rgba(255, 179, 71, 0.5);
+    border-radius: 8px; padding: 10px 18px; font-size: 17px; font-weight: 700; text-align: center; }
+
+  button { cursor: pointer; font-family: inherit; }
+  .btn { background: #ffb347; color: #1c1216; border: none; border-radius: 8px;
+    padding: 9px 16px; font-size: 15px; font-weight: 700; }
+  .btn:hover { background: #ffc46b; }
+  .btn.ghost { background: transparent; color: #ffb347; border: 1px solid #ffb347; }
+  .btn.ghost:hover { background: rgba(255, 179, 71, 0.15); }
+
+  /* --- Screens: title / pause / end overlays. --- */
+  .screen { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px; text-align: center;
+    background: linear-gradient(rgba(20, 10, 14, 0.55), rgba(20, 10, 14, 0.82)); color: #f4ede2; padding: 20px; }
+  .screen h1 { margin: 0; font-size: 52px; letter-spacing: 3px; color: #ffb347;
+    text-shadow: 0 3px 0 #7a2d12, 0 6px 24px rgba(0,0,0,0.6); }
+  .screen h2 { margin: 0; font-size: 30px; color: #ffb347; }
+  .screen .sub { font-size: 18px; color: #e8dcc8; max-width: 620px; line-height: 1.45; }
+  .screen .controls { font-size: 14px; color: #cbbfa8; line-height: 1.7; max-width: 640px; }
+  .screen .controls b { color: #ffe9c4; }
+  .mission-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .mission-btn { background: rgba(255, 179, 71, 0.12); border: 1px solid #ffb347; color: #ffe9c4;
+    border-radius: 10px; padding: 12px 18px; font-size: 16px; font-weight: 700; text-align: left; min-width: 180px; }
+  .mission-btn:hover { background: rgba(255, 179, 71, 0.28); }
+  .mission-btn small { display: block; font-size: 12px; font-weight: 400; color: #cbbfa8; margin-top: 4px; }
+  #end-body { font-size: 17px; line-height: 1.55; max-width: 560px; }
+  #end-body b { color: #ffb347; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="status" aria-live="polite"></div>
+
+<div id="hud-instruments" class="panel">
+  <div id="hud-attitude"><div id="hud-horizon"></div></div>
+  <div><div class="label">Altitude</div><div class="value"><span id="hud-alt">0</span> <span class="unit">m</span></div></div>
+  <div><div class="label">Speed</div><div class="value"><span id="hud-spd">0</span> <span class="unit">km/h</span></div></div>
+  <div><div class="label">Heading</div><div class="value"><span id="hud-hdg">000°</span></div></div>
+</div>
+
+<div id="hud-mission-box" class="panel">
+  <div id="hud-mission">Ring Run</div>
+  <div id="hud-rings">RINGS 0/6</div>
+  <div id="hud-wind"></div>
+</div>
+
+<div id="hud-score-box" class="panel">
+  <div class="label">Score</div>
+  <div class="value" id="hud-score">0</div>
+</div>
+
+<div id="hud-levers" class="panel">
+  <div class="bar-row"><span class="label">FUEL</span><div class="bar"><div id="hud-fuel-bar"></div></div><span id="hud-fuel">100%</span></div>
+  <div class="bar-row"><span class="label">THRUST</span><div class="bar"><div id="hud-thr-bar"></div></div><span id="hud-thr">0%</span></div>
+  <div class="bar-row"><span class="label">HULL</span><div class="bar"><div id="hud-hull-bar"></div></div><span id="hud-hull">100%</span></div>
+</div>
+
+<div id="hud-cam-box" class="panel">
+  <div id="hud-cam">CAM CHASE</div>
+  <div style="margin-top:8px; display:flex; gap:8px; justify-content:flex-end;">
+    <button id="btn-cam" class="btn ghost">CAM [C]</button>
+    <button id="btn-sound" class="btn ghost">SOUND ON</button>
+  </div>
+</div>
+
+<div id="hud-msg" class="hidden"></div>
+
+<div id="screen-title" class="screen">
+  <h1>STEEL FALCON 3D</h1>
+  <div class="sub">A Rafale-class delta fighter over a robot war city — burning towers,
+    wrecked mechs, smoke and embers. Thread the gold rings, watch your fuel and hull,
+    and bring her home to the strip.</div>
+  <div class="mission-row">
+    <button class="mission-btn" id="btn-m0">1 · Ring Run<small>6 rings over the war city</small></button>
+    <button class="mission-btn" id="btn-m1">2 · City Hop<small>7 rings between the broken towers</small></button>
+    <button class="mission-btn" id="btn-m2">3 · Dusk Delivery<small>8 rings, land on the strip</small></button>
+  </div>
+  <div class="controls">
+    <b>↑/↓</b> pitch &nbsp;·&nbsp; <b>←/→</b> bank &amp; turn &nbsp;·&nbsp; <b>W/S</b> throttle<br>
+    <b>Space</b> airbrake &nbsp;·&nbsp; <b>F</b> flaps &nbsp;·&nbsp; <b>C</b> chase / cockpit camera<br>
+    <b>P</b> pause &nbsp;·&nbsp; <b>R</b> restart &nbsp;·&nbsp; <b>M</b> sound &nbsp;·&nbsp; click a mission or press <b>1–3</b>
+  </div>
+</div>
+
+<div id="screen-pause" class="screen hidden">
+  <h2>PAUSED</h2>
+  <div class="sub">Press <b>P</b> to keep flying.</div>
+</div>
+
+<div id="screen-end" class="screen hidden">
+  <h2 id="end-title">MISSION COMPLETE</h2>
+  <div id="end-body"></div>
+  <div style="display:flex; gap:12px;">
+    <button id="btn-again" class="btn">FLY AGAIN [R]</button>
+    <button id="btn-menu" class="btn ghost">MISSIONS</button>
+  </div>
+</div>
+
+<script type="importmap">
+{"imports": {"three": "./vendor/three.min.js"}}
+</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
